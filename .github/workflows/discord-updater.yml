@@ -1,0 +1,52 @@
+name: Update Discord updater post
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LOGO: https://www.midnightessentials.me/favicon.png
+  PAGE: https://www.midnightessentials.me/#updater
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update the updater post
+        env:
+          WEBHOOK: ${{ secrets.UPDATER_WEBHOOK }}
+          MSG_ID: ${{ vars.UPDATER_MESSAGE_ID }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(gh api "repos/${{ github.repository }}/releases/latest" --jq '.tag_name')
+          case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac
+
+          jq -n --arg v "$VERSION" --arg logo "$LOGO" --arg page "$PAGE" '{
+            username: "MidnightEssentials",
+            avatar_url: $logo,
+            embeds: [{
+              title: ("MidnightEssentials Updater " + $v),
+              url: $page,
+              description: "Installs MidnightEssentials and keeps it up to date in one click. Your settings and other addons are never touched.\n\n**How to use** · Download, extract, open `MidnightEssentialsUpdater.exe`, pick your World of Warcraft folder and click **Install** or **Update**.\n**Windows warning?** · Click **More info**, then **Run anyway**.",
+              color: 10980346,
+              thumbnail: { url: $logo },
+              footer: { text: ("Updated " + (now | strftime("%d %b %Y"))) }
+            }],
+            components: [{ type: 1, components: [
+              { type: 2, style: 5, label: "Download", url: $page }
+            ]}]
+          }' > payload.json
+
+          if [ -z "$MSG_ID" ]; then
+            RESP=$(curl -sS --fail-with-body -H "Content-Type: application/json" -d @payload.json "$WEBHOOK?wait=true&with_components=true")
+            ID=$(echo "$RESP" | jq -r .id)
+            echo "UPDATER MESSAGE ID: $ID"
+            echo "### Updater post created. Message ID: \`$ID\`" >> "$GITHUB_STEP_SUMMARY"
+          else
+            curl -sS --fail-with-body -X PATCH -H "Content-Type: application/json" -d @payload.json "$WEBHOOK/messages/$MSG_ID?with_components=true"
+            echo "### Updater post updated to $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
