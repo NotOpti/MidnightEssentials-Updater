@@ -31,4 +31,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/MidnightEssentialsUpdater.exe --title "$GITHUB_REF_NAME" --notes "MidnightEssentials Updater $GITHUB_REF_NAME"
+        run: gh release upload "$GITHUB_REF_NAME" dist/MidnightEssentialsUpdater.exe --clobber || gh release create "$GITHUB_REF_NAME" dist/MidnightEssentialsUpdater.exe --title "$GITHUB_REF_NAME" --notes "MidnightEssentials Updater $GITHUB_REF_NAME"
